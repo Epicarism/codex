@@ -79,3 +79,51 @@ You can also use Codex with an API key, but this requires [additional setup](htt
 - [**Open source fund**](./docs/open-source-fund.md)
 
 This repository is licensed under the [Apache-2.0 License](LICENSE).
+
+## Fork runtime security (2026-10-23)
+
+Development and CI use Node 22.23.4; npm trusted publishing uses 24.22.1.
+Previously these selected floating 22/24 and the secure devcontainer installed
+floating NodeSource 22. The secure container now copies an exact Node 22.23.4
+image, and `.node-version` records that version.
+The root `>=22`, SDK `>=18` and CLI/proxy `>=16` engines describe package
+compatibility, not approved operational runtimes; they remain unchanged.
+The development installer engine range is restricted to supported patched
+22.23.4+, 24.22.1+ and 26.12.1+ branches (within each major).
+
+This addresses Node CVE-2026-111497 in the
+[October 21 advisory](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases).
+No PHP runtime or Composer pins were found; PHP2Shell
+CVE-2026-109618/CVE-2026-109619 required no PHP changes.
+
+Verify with `node --version`, `node .github/scripts/check-node-runtime.cjs` and
+`pnpm audit --audit-level high` in both existing pnpm lockfile directories.
+Local Node 24.22.1/Brotli 1.2.0 passed the actual runtime/Brotli and source-selector
+gate. Throwaway fixtures rejected unsafe image, tarball, distro, version-file,
+Volta and launcher selections while admitting patched supported boundaries.
+The runtime gate has its own CI job, independent of unrelated repository checks.
+
+Development security fixes include MCP SDK 1.26.0 to 1.32.0, Undici 7.28.0 to
+7.29.1, Handlebars 4.7.9 to 4.7.10, fast-uri 3.1.1 to 3.1.7, patched JS-YAML
+3/4 and brace-expansion 1/5 branches, proxy-addr 2.0.8 and Browserslist 4.28.7.
+To remove the unpatched
+[braces chain](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm), its consumers
+moved from Jest 29.7 to 30.5.2 and TypeScript-ESLint 8.45 to 8.48, with matching
+Jest types and ts-jest 29.4.15. Existing test code, default suites and configurations
+were preserved. This follows the
+[supported Jest migration](https://jestjs.io/docs/upgrading-to-jest30);
+no package scanner or advisory was suppressed.
+
+The full root audit went from 42 high/3 critical to zero high/critical; 4 low
+and 25 moderate findings remain in development tooling. The production-only
+audit and the devcontainer installer audit contain zero vulnerabilities.
+[Remote security/SDK proof](https://github.com/Epicarism/codex/actions/runs/39879779179)
+passed the runtime and dependency jobs, frozen-lockfile/scripts-disabled install,
+actual ESM/declaration build, type-check of all source/tests/samples, and Jest 30
+discovery of all five unchanged default suites. Discovery is not test execution.
+Full SDK/MCP integration execution requires the matching built Codex binary;
+the inherited fork CI still fails its pre-existing Cargo workspace-manifest
+verification and other unrelated jobs. No tests were deleted to hide that blocker.
+Actionlint passed the changed repo-checks workflow; untouched SDK/release workflows
+retain baseline deployment/matrix/cache-output diagnostics.
+No live deployment, container build or model traffic was performed.

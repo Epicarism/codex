@@ -4,6 +4,20 @@ on:
   workflow_call:
 
 jobs:
+  runtime-security:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: "22.23.4"
+      - name: Check runtime security and deployment pins
+        run: node .github/scripts/check-node-runtime.cjs
+
   build-test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -43,7 +57,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
-          node-version: 22
+          node-version: "22.23.4"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -66,3 +80,48 @@ jobs:
       - name: Check for a clean worktree
         if: always() && !cancelled()
         uses: ./.github/actions/check-clean-worktree
+
+  dependency-security:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        directory: [".", ".devcontainer/codex-install"]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+        with:
+          run_install: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: "22.23.4"
+      - name: Fail on HIGH or CRITICAL lockfile advisories
+        working-directory: ${{ matrix.directory }}
+        run: pnpm audit --audit-level high
+
+  sdk-security-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+        with:
+          run_install: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: "22.23.4"
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Build the actual SDK against patched dependency APIs
+        run: pnpm --filter @openai/codex-sdk build
+      - name: Type-check source and all existing test consumers
+        run: pnpm --filter @openai/codex-sdk exec tsc --noEmit --rootDir . --allowImportingTsExtensions
+      - name: Verify migrated Jest discovers the unchanged default suites
+        run: pnpm --filter @openai/codex-sdk exec jest --listTests --runInBand

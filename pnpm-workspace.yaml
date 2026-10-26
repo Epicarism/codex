@@ -7,7 +7,12 @@ ignoredBuiltDependencies:
   - esbuild
 
 minimumReleaseAge: 10080
-minimumReleaseAgeExclude: []
+minimumReleaseAgeExclude:
+  # Security fixes younger than the 7-day release-age rule (2026-10-26):
+  # undici GHSA-xjj6-f33q-929c, body-parser GHSA-27r3-jxmh-p828, zod GHSA-mrhx-c7xc-m3w5
+  - undici@7.30.1
+  - body-parser@2.4.0
+  - zod@4.6.7
 
 blockExoticSubdeps: true
 strictDepBuilds: true
